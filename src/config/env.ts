@@ -69,6 +69,8 @@ export const config = {
     identifier: ANIME_PROVIDER_IDENTIFIER,
     title: ANIME_PROVIDER_TITLE,
     version: process.env.PROVIDER_VERSION || '1.0.0',
+    /** URL under which Plex reaches the provider (registration); empty = http://localhost:PORT */
+    url: (process.env.PROVIDER_URL || '').trim() || `http://localhost:${process.env.PORT || '3000'}`,
   },
   server: {
     port: parseInt(process.env.PORT || '3000', 10),

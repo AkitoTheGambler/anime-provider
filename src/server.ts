@@ -7,6 +7,7 @@ import { config, validateConfig } from './config/env';
 import logger from './utils/logger';
 import { PlexClient } from './plex/PlexClient';
 import { syncCollections } from './plex/CollectionSync';
+import { registerProvider } from './plex/ProviderRegistration';
 import { makeProviderResolver } from './plex/providerResolver';
 import { ANIME_PROVIDER_IDENTIFIER, ANIME_PROVIDER_TITLE } from './constants';
 
@@ -41,8 +42,20 @@ app.listen(config.server.port, () => {
     source: config.source,
   });
 
+  registerWithPlex();
   scheduleCollectionSync();
 });
+
+/** Adds (or updates) the provider in Plex when a Plex token is configured */
+function registerWithPlex(): void {
+  if (!config.plex.token) return;
+  registerProvider({
+    plex: new PlexClient(config.plex.url, config.plex.token),
+    uri: config.provider.url,
+    identifier: ANIME_PROVIDER_IDENTIFIER,
+    title: ANIME_PROVIDER_TITLE,
+  }).catch((e) => logger.warn(`Registering with Plex failed: ${e.message}`));
+}
 
 /**
  * Plex ignores provider collections in TV libraries, so the provider writes

@@ -9,6 +9,9 @@ services:
     environment:
       # inside the container "localhost" is the container itself
       PLEX_URL: http://host.docker.internal:32400
+      # address Plex uses to reach the provider; the default http://localhost:3000
+      # fits Plex running directly on this machine
+      # PROVIDER_URL: http://192.168.1.10:3000
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

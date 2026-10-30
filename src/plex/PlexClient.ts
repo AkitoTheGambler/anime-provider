@@ -22,6 +22,13 @@ export interface PlexCollection {
   childCount?: number;
 }
 
+export interface PlexMetadataProvider {
+  id: string;
+  identifier: string;
+  title: string;
+  uri: string;
+}
+
 export class PlexClient {
   private http: AxiosInstance;
 
@@ -100,5 +107,26 @@ export class PlexClient {
     await this.http.put(`/library/sections/${sectionKey}/all`, null, {
       params: { type: 18, id: collectionKey, 'summary.value': summary, 'summary.locked': 1 },
     });
+  }
+
+  /** Metadata providers registered with this Plex Media Server */
+  async listMetadataProviders(): Promise<PlexMetadataProvider[]> {
+    const res = await this.http.get('/media/providers/metadata');
+    return (res.data?.MediaContainer?.MetadataAgentProvider || []).map((p: any) => ({
+      id: String(p.id),
+      identifier: String(p.identifier || ''),
+      title: String(p.title || ''),
+      uri: String(p.uri || ''),
+    }));
+  }
+
+  /** Registers a provider; Plex reads its definition from the URI */
+  async addMetadataProvider(uri: string): Promise<void> {
+    await this.http.post('/media/providers/metadata', null, { params: { uri } });
+  }
+
+  /** Makes Plex read the provider definition again (identifier, title, types) */
+  async updateMetadataProvider(id: string, uri: string): Promise<void> {
+    await this.http.put(`/media/providers/metadata/${id}`, null, { params: { uri } });
   }
 }
