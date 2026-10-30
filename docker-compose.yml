@@ -1,6 +1,6 @@
 services:
   anime-provider:
-    image: <dockerhub-user>/anime-provider:latest
+    image: akitothegambler/anime-provider:latest
     container_name: anime-provider
     restart: unless-stopped
     ports:

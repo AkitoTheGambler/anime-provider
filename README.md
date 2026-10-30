@@ -8,7 +8,7 @@ In Plex it shows up as **Anime**.
 ```bash
 docker run -d --name anime-provider -p 3000:3000 \
   --env-file .env -v ./cache:/app/cache \
-  <dockerhub-user>/anime-provider:latest
+  akitothegambler/anime-provider:latest
 ```
 
 or `docker compose up -d` with the included `docker-compose.yml`.
@@ -426,4 +426,4 @@ The provider uses sophisticated title matching to handle anime's multi-language 
 
 ## License
 
-MIT
+MIT, see [LICENSE](LICENSE). Based on the TMDB Example Provider template (ISC), whose notice is included there.
