@@ -378,6 +378,28 @@ export class MetadataService {
   }
 
   /**
+   * The MAL entry a special (Season 0 episode) comes from, e.g. for the MyAnimeList updater.
+   * Only for MAL-based sources: AniDB's specials are episodes of the anime itself.
+   * @returns null when the ratingKey is no special or the special isn't known
+   */
+  async getSpecialSource(
+    ratingKey: string
+  ): Promise<{ mal_id: number; episode: number; title: string; episodes: number | null } | null> {
+    const parsed = this.parseRatingKey(ratingKey);
+    if (!parsed || parsed.type !== 'episode' || parsed.seasonNumber !== 0) return null;
+    if (this.jikanClient.getSpecials) return null; // native specials (AniDB): no separate entry
+    const specials = await getAggregatedSpecials(parsed.malId, this.jikanClient);
+    const special = specials.find((s) => s.globalIndex === parsed.episodeNumber);
+    if (!special) return null;
+    return {
+      mal_id: special.anime.mal_id,
+      episode: special.episode.mal_id,
+      title: special.anime.title,
+      episodes: special.anime.episodes ?? null,
+    };
+  }
+
+  /**
    * Get metadata by ratingKey
    */
   async getMetadata(

@@ -166,6 +166,25 @@ router.get(`${API_PATHS.LIBRARY_METADATA}/:ratingKey`, async (req: Request, res:
 });
 
 /**
+ * The MAL entry and episode a special (Season 0 episode) comes from. Used by the MyAnimeList
+ * updater, because the GUID of a special only names the main show.
+ */
+router.get('/specials/:ratingKey', async (req: Request, res: Response) => {
+  const ratingKey = Array.isArray(req.params.ratingKey) ? req.params.ratingKey[0] : req.params.ratingKey;
+  try {
+    const source = await getRouter().metadataFor(ratingKey).getSpecialSource(ratingKey);
+    if (!source) {
+      res.status(404).json({ error: 'Not a known special of a MAL-based show' });
+      return;
+    }
+    res.json(source);
+  } catch (error) {
+    logger.error('Error resolving a special', { error: errorMessage(error), ratingKey });
+    res.status(500).json({ error: 'Internal server error', message: errorMessage(error) });
+  }
+});
+
+/**
  * Match endpoint - search/match for items
  */
 router.post(API_PATHS.LIBRARY_MATCHES, async (req: Request, res: Response) => {
