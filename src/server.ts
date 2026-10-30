@@ -54,7 +54,13 @@ function registerWithPlex(): void {
     uri: config.provider.url,
     identifier: ANIME_PROVIDER_IDENTIFIER,
     title: ANIME_PROVIDER_TITLE,
-  }).catch((e) => logger.warn(`Registering with Plex failed: ${e.message}`));
+  }).catch((e) => {
+    // which request failed and what Plex answered (the token is in a header, not in the URL)
+    const req = e.config ? `${String(e.config.method).toUpperCase()} ${e.config.url}` : '';
+    const params = e.config?.params ? ` ${JSON.stringify(e.config.params)}` : '';
+    const body = e.response?.data ? ` → ${typeof e.response.data === 'string' ? e.response.data : JSON.stringify(e.response.data)}` : '';
+    logger.warn(`Registering with Plex failed: ${e.message} (${req}${params})${body.slice(0, 500)}`);
+  });
 }
 
 /**

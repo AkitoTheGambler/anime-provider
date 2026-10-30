@@ -42,10 +42,16 @@ describe('registering the provider with Plex', () => {
     expect(writes).toEqual([{ method: 'POST', path: '/media/providers/metadata', uri: 'http://localhost:3000' }]);
   });
 
-  it('updates the entry with the same URL, e.g. after the identifier changed', async () => {
+  it('adds a new entry after the identifier changed and leaves the old one (Plex can\'t change identifiers)', async () => {
     const { result, writes } = await run([{ id: 7, identifier: 'tv.plex.agents.custom.mal', title: 'MyAnimeList Anime Provider', uri: 'http://localhost:3000/' }]);
+    expect(result).toBe('added');
+    expect(writes).toEqual([{ method: 'POST', path: '/media/providers/metadata', uri: 'http://localhost:3000' }]);
+  });
+
+  it('updates the title of its own entry', async () => {
+    const { result, writes } = await run([{ id: 4, identifier: ID, title: 'Old name', uri: 'http://localhost:3000' }]);
     expect(result).toBe('updated');
-    expect(writes).toEqual([{ method: 'PUT', path: '/media/providers/metadata/7', uri: 'http://localhost:3000' }]);
+    expect(writes).toEqual([{ method: 'PUT', path: '/media/providers/metadata/4', uri: 'http://localhost:3000' }]);
   });
 
   it('updates the entry with the same identifier when the URL changed', async () => {
