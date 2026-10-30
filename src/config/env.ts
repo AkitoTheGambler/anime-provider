@@ -37,7 +37,7 @@ export const config = {
   /** Which backend serves metadata: jikan | mal | anidb */
   source: parseSource(process.env.METADATA_SOURCE),
   jikan: {
-    baseURL: process.env.JIKAN_BASE_URL || 'https://api.jikan.moe/v4',
+    baseURL: process.env.JIKAN_BASE_URL || 'http://localhost:8080/v4',
     rateLimitPerSecond: parseInt(process.env.JIKAN_RATE_LIMIT_PER_SECOND || '3', 10),
     rateLimitPerMinute: parseInt(process.env.JIKAN_RATE_LIMIT_PER_MINUTE || '60', 10),
     timeoutMs: parseInt(process.env.JIKAN_TIMEOUT_MS || '20000', 10),

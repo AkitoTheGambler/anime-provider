@@ -47,7 +47,7 @@ export class JikanClient implements AnimeDataSource {
   private inflight = new Map<string, Promise<unknown>>();
   private cacheDurations: Map<string, number>;
 
-  constructor(baseURL: string = 'https://api.jikan.moe/v4', options: JikanClientOptions = {}) {
+  constructor(baseURL: string = 'http://localhost:8080/v4', options: JikanClientOptions = {}) {
     this.baseURL = baseURL;
     this.client = axios.create({
       baseURL: this.baseURL,
