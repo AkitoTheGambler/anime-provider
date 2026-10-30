@@ -20,8 +20,9 @@ or `docker compose up -d` with the included `docker-compose.yml`.
   AniDB data isn't downloaded again after an update.
 - With `PLEX_TOKEN` set, the provider registers itself in Plex on start (Settings →
   Metadata Agents). Set `PROVIDER_URL` to the address Plex reaches it under, e.g.
-  `http://192.168.1.10:3000`; the default `http://localhost:3000` only works when
-  Plex runs on the same machine outside Docker.
+  `http://192.168.1.10` (`PORT` is added when the URL has no port; write `:80` /
+  `:443` explicitly behind a reverse proxy). The default `http://localhost:3000`
+  only works when Plex runs on the same machine outside Docker.
 - Collection sync on demand: `docker exec anime-provider node dist/tools/syncCollections.js`
 
 Build it yourself: `docker build -t anime-provider .`

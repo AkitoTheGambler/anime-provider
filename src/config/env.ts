@@ -8,6 +8,22 @@ import { ANIME_PROVIDER_IDENTIFIER, ANIME_PROVIDER_TITLE } from '../constants';
 const SOURCES = ['jikan', 'mal', 'anidb'] as const;
 export type MetadataSource = (typeof SOURCES)[number];
 
+/**
+ * URL under which Plex reaches the provider. Without a port, PORT is added
+ * ("http://192.168.1.10" → "http://192.168.1.10:3000"); write ":80" / ":443" explicitly for a reverse proxy.
+ * Empty = http://localhost:PORT
+ */
+export function providerUrl(value: string | undefined, port: string | number): string {
+  const v = (value || '').trim().replace(/\/+$/, '');
+  if (!v) return `http://localhost:${port}`;
+  const m = v.match(/^([a-z][a-z0-9+.-]*:\/\/)([^/?#]*)(.*)$/i);
+  if (!m) return v;
+  const [, scheme, host, rest] = m;
+  // host already has a port: "name:3000" or "[::1]:3000"
+  if (/:\d+$/.test(host) && !/^\[[^\]]*\]$/.test(host)) return v;
+  return `${scheme}${host}:${port}${rest}`;
+}
+
 function parseSource(v: string | undefined): MetadataSource {
   const s = (v || 'jikan').trim().toLowerCase();
   if (s === 'malv2' || s === 'mal_v2' || s === 'myanimelist') return 'mal';
@@ -71,8 +87,8 @@ export const config = {
     identifier: ANIME_PROVIDER_IDENTIFIER,
     title: ANIME_PROVIDER_TITLE,
     version: process.env.PROVIDER_VERSION || '1.0.0',
-    /** URL under which Plex reaches the provider (registration); empty = http://localhost:PORT */
-    url: (process.env.PROVIDER_URL || '').trim() || `http://localhost:${process.env.PORT || '3000'}`,
+    /** URL under which Plex reaches the provider (registration), see providerUrl() */
+    url: providerUrl(process.env.PROVIDER_URL, process.env.PORT || '3000'),
   },
   server: {
     port: parseInt(process.env.PORT || '3000', 10),

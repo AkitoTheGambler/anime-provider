@@ -5,6 +5,7 @@ import http from 'http';
 import { AddressInfo } from 'net';
 import { PlexClient } from '../src/plex/PlexClient';
 import { registerProvider } from '../src/plex/ProviderRegistration';
+import { providerUrl } from '../src/config/env';
 
 const ID = 'tv.plex.agents.custom.anime';
 
@@ -64,5 +65,25 @@ describe('registering the provider with Plex', () => {
     const { result, writes } = await run([{ id: 7, identifier: ID, title: 'Anime', uri: 'http://LOCALHOST:3000' }]);
     expect(result).toBe('unchanged');
     expect(writes).toEqual([]);
+  });
+});
+
+describe('PROVIDER_URL', () => {
+  it('adds PORT when the URL has no port', () => {
+    expect(providerUrl('http://192.168.1.10', 3000)).toBe('http://192.168.1.10:3000');
+    expect(providerUrl('http://192.168.1.10/', '3000')).toBe('http://192.168.1.10:3000');
+    expect(providerUrl('http://nas.local/anime', 3001)).toBe('http://nas.local:3001/anime');
+    expect(providerUrl('http://[::1]', 3000)).toBe('http://[::1]:3000');
+  });
+
+  it('keeps a port that is given, including 80 / 443 for a reverse proxy', () => {
+    expect(providerUrl('http://192.168.1.10:4000', 3000)).toBe('http://192.168.1.10:4000');
+    expect(providerUrl('https://anime.example.com:443', 3000)).toBe('https://anime.example.com:443');
+    expect(providerUrl('http://[::1]:3000', 3000)).toBe('http://[::1]:3000');
+  });
+
+  it('empty = localhost with PORT', () => {
+    expect(providerUrl('', 3000)).toBe('http://localhost:3000');
+    expect(providerUrl(undefined, '8080')).toBe('http://localhost:8080');
   });
 });
