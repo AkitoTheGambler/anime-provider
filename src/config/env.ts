@@ -46,7 +46,7 @@ export const config = {
   },
   match: {
     /** false = example-provider matching (trust the API's top result) */
-    scoring: process.env.MATCH_SCORING !== 'false',
+    scoring: process.env.MATCH_SCORING === 'true',
   },
   collections: {
     /** Group franchise entries into Plex collections (true/false) */

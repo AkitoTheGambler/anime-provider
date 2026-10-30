@@ -284,10 +284,10 @@ Same flow as the TMDB example provider:
    has no search API at all.
 3. Return the best **1** (auto-match) or **5** (manual Fix Match).
 
-`MATCH_SCORING=true` (default) re-ranks step 2's results — exact title on any
+`MATCH_SCORING=false` (default) keeps the API's own order, exactly like the
+example. `MATCH_SCORING=true` re-ranks step 2's results — exact title on any
 registered title (150) or fuzzy similarity (0-100), plus the MAL score as
-tiebreaker; the top 5 scores are logged. `MATCH_SCORING=false` keeps the API's
-own order, exactly like the example.
+tiebreaker; the top 5 scores are logged.
 
 AniDB searches its local title dump (no dates in it), so instead of filtering it
 fetches up to 3 near-equal candidates and prefers the one that first aired that year.
