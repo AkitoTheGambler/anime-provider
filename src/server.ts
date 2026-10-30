@@ -33,6 +33,7 @@ app.listen(config.server.port, () => {
   console.log(`\nEnvironment: ${config.server.nodeEnv}`);
   console.log(`Metadata source: ${config.source}`);
   console.log(`Match scoring: ${config.match.scoring ? 'on' : 'off'}`);
+  console.log(`Lists: ${config.collections.download ? 'download' : 'local'}`);
   console.log(`Collections: ${!config.collections.enabled ? 'off' : !config.plex.token ? 'on (no PLEX_TOKEN)' : config.collections.syncHours > 0 ? `on, every ${config.collections.syncHours}h` : 'on, manual'}`);
   console.log(`\n${'='.repeat(60)}\n`);
 

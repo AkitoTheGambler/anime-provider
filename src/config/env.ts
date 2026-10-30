@@ -51,6 +51,8 @@ export const config = {
   collections: {
     /** Group franchise entries into Plex collections (true/false) */
     enabled: process.env.COLLECTIONS !== 'false',
+    /** Download Fribb's lists into cache/collections (true) or only read the files there (false) */
+    download: process.env.LISTS_DOWNLOAD !== 'false',
     /** Hours between automatic collection syncs into Plex (0 = only on demand) */
     syncHours: parseFloat(process.env.COLLECTION_SYNC_HOURS || '6'),
   },

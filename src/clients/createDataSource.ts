@@ -81,12 +81,12 @@ export function createDataSource(): AnimeDataSource {
 
 /** Fribb franchise list for an ID space (MAL IDs or AniDB IDs) */
 export function getFranchiseList(idType: IdPrefix = defaultPrefix()): FranchiseList {
-  if (!franchiseLists[idType]) franchiseLists[idType] = new FranchiseList({ idType });
+  if (!franchiseLists[idType]) franchiseLists[idType] = new FranchiseList({ idType, download: config.collections.download });
   return franchiseLists[idType]!;
 }
 
 /** Fribb cross-site ID mapping (for {anidb-…}/{mal-…}/{anilist-…} folder tags) */
 export function getIdMapping(): IdMapping {
-  if (!sharedIdMapping) sharedIdMapping = new IdMapping();
+  if (!sharedIdMapping) sharedIdMapping = new IdMapping({ download: config.collections.download });
   return sharedIdMapping;
 }

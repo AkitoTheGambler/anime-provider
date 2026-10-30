@@ -4,7 +4,8 @@
  *   npm run franchise -- mal 40881
  *   npm run franchise -- anidb 14993
  *
- * Uses the same lists as the provider: Fribb's files, cached in cache/collections/.
+ * Uses the same lists as the provider: cache/collections/ (Fribb's, downloaded daily, or your own
+ * with LISTS_DOWNLOAD=false).
  * No anime API calls.
  */
 
@@ -23,8 +24,9 @@ async function main() {
   }
 
   // load (and if needed download) both lists
-  await new IdMapping().convert('mal', 1, 'anidb');
-  const franchises = (await new FranchiseList({ idType: type }).findAll(id)).filter((f) => f.ids.length >= 2);
+  const download = config.collections.download;
+  await new IdMapping({ download }).convert('mal', 1, 'anidb');
+  const franchises = (await new FranchiseList({ idType: type, download }).findAll(id)).filter((f) => f.ids.length >= 2);
 
   const listFile = path.resolve('./cache/collections/anime-list-full.json');
   const entries: any[] = fs.existsSync(listFile) ? JSON.parse(fs.readFileSync(listFile, 'utf8')) : [];

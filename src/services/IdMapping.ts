@@ -46,6 +46,8 @@ export interface IdMappingOptions {
   url?: string;
   cacheDir?: string;
   refreshHours?: number;
+  /** false = never download, only read <cacheDir>/anime-list-full.json (e.g. self-generated list) */
+  download?: boolean;
 }
 
 export class IdMapping {
@@ -55,18 +57,45 @@ export class IdMapping {
   /** Last download attempt — failed downloads are retried at most every 15 min */
   private lastAttempt = 0;
   private loading: Promise<IdMapping['maps']> | null = null;
+  private localMtime = 0;
+  private missingLogged = false;
 
   constructor(options: IdMappingOptions = {}) {
     this.opts = {
       url: options.url || 'https://raw.githubusercontent.com/Fribb/anime-lists/master/anime-list-full.json',
       cacheDir: path.resolve(options.cacheDir || './cache/collections'),
       refreshHours: options.refreshHours ?? 24,
+      download: options.download ?? true,
     };
   }
 
   private get file(): string {
     return path.join(this.opts.cacheDir, 'anime-list-full.json');
   }
+
+  /** download=false: read the file in cacheDir only, again whenever it changes */
+  private loadLocal(): IdMapping['maps'] {
+    let mtime: number;
+    try {
+      mtime = fs.statSync(this.file).mtimeMs;
+    } catch {
+      if (!this.missingLogged) logger.warn(`ID mapping list not found: ${this.file} (downloads are off)`);
+      this.missingLogged = true;
+      return this.maps;
+    }
+    if (this.maps && mtime === this.localMtime) return this.maps;
+    try {
+      const list: any[] = JSON.parse(fs.readFileSync(this.file, 'utf8'));
+      this.maps = this.buildMaps(list);
+      logger.info(`ID mapping loaded from ${this.file}: ${list.length} entries`);
+      this.localMtime = mtime;
+      this.missingLogged = false;
+    } catch (e) {
+      logger.warn(`ID mapping list unreadable (${(e as Error).message})`);
+    }
+    return this.maps;
+  }
+
 
   private buildMaps(list: any[]): Record<IdProvider, Map<number, any>> {
     const maps: Record<IdProvider, Map<number, any>> = { mal: new Map(), anidb: new Map(), anilist: new Map() };
@@ -80,6 +109,7 @@ export class IdMapping {
   }
 
   private async load(): Promise<IdMapping['maps']> {
+    if (!this.opts.download) return this.loadLocal();
     const maxAge = this.opts.refreshHours * HOUR_MS;
     if (this.maps && Date.now() - this.loadedAt < maxAge) return this.maps;
     if (this.loading) return this.loading;

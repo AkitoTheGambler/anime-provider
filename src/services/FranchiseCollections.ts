@@ -30,6 +30,8 @@ export interface FranchiseListOptions {
   baseURL?: string;
   cacheDir?: string;
   refreshHours?: number;
+  /** false = never download, only read <cacheDir>/<idType>_collection.json (e.g. self-generated lists) */
+  download?: boolean;
 }
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -42,6 +44,8 @@ export class FranchiseList {
   /** Last download attempt — failed downloads are retried at most every 15 min */
   private lastAttempt = 0;
   private loading: Promise<Map<number, Franchise[]> | null> | null = null;
+  private localMtime = 0;
+  private missingLogged = false;
 
   constructor(options: FranchiseListOptions) {
     this.opts = {
@@ -49,12 +53,36 @@ export class FranchiseList {
       baseURL: (options.baseURL || 'https://raw.githubusercontent.com/Fribb/anime-lists/master/collections').replace(/\/$/, ''),
       cacheDir: path.resolve(options.cacheDir || './cache/collections'),
       refreshHours: options.refreshHours ?? 24,
+      download: options.download ?? true,
     };
   }
 
   private get file(): string {
     return path.join(this.opts.cacheDir, `${this.opts.idType}_collection.json`);
   }
+
+  /** download=false: read the file in cacheDir only, again whenever it changes */
+  private loadLocal(): Map<number, Franchise[]> | null {
+    let mtime: number;
+    try {
+      mtime = fs.statSync(this.file).mtimeMs;
+    } catch {
+      if (!this.missingLogged) logger.warn(`Franchise list not found: ${this.file} (downloads are off)`);
+      this.missingLogged = true;
+      return this.index;
+    }
+    if (this.index && mtime === this.localMtime) return this.index;
+    try {
+      this.setIndex(JSON.parse(fs.readFileSync(this.file, 'utf8')));
+      logger.info(`Franchise list loaded from ${this.file}: ${this.count} franchises`);
+      this.localMtime = mtime;
+      this.missingLogged = false;
+    } catch (e) {
+      logger.warn(`Franchise list unreadable (${(e as Error).message})`);
+    }
+    return this.index;
+  }
+
 
   private get url(): string {
     return `${this.opts.baseURL}/${this.opts.idType}_collection.json`;
@@ -77,6 +105,7 @@ export class FranchiseList {
 
   /** Loads (and if stale, refreshes) the list. Returns null if unavailable. */
   async load(): Promise<Map<number, Franchise[]> | null> {
+    if (!this.opts.download) return this.loadLocal();
     const maxAge = this.opts.refreshHours * HOUR_MS;
     if (this.index && Date.now() - this.loadedAt < maxAge) return this.index;
     if (this.loading) return this.loading;

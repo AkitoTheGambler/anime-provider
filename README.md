@@ -311,6 +311,11 @@ Fribb builds the groups from anime-offline-database "related anime" links
 - groups with **more than 100** entries are dropped
 - the group name is the title of the entry with the lowest ID
 
+**Own lists** (`LISTS_DOWNLOAD=false`): the provider doesn't download anything and reads
+`mal_collection.json`, `anidb_collection.json` and `anime-list-full.json` from
+`cache/collections/`, e.g. copied from the anime-lists-generator output. A newly copied
+file is picked up automatically, however old it is.
+
 Check which group (= collection) a show is in, without any API calls:
 
 ```
