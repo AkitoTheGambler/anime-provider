@@ -6,7 +6,7 @@ import { JikanClient } from '../clients/JikanClient';
 import { AnimeDataSource, yearMatches } from '../clients/AnimeDataSource';
 import { JikanMapper, JikanMapperConfig } from '../mappers/JikanMapper';
 import { MetadataResponse, ShowMetadata } from '../models/Metadata';
-import { getAggregatedSpecials } from './SpecialsHelper';
+import { getAggregatedSpecials, parseSpecialTag, resolveTaggedSpecial } from './SpecialsHelper';
 import { JikanAnimeSearchResult } from '../types/jikan';
 import logger from '../utils/logger';
 import { IdMapping, extractTaggedIds } from './IdMapping';
@@ -324,12 +324,23 @@ export class MatchService {
 
     const show = showMatch.MediaContainer.Metadata[0] as ShowMetadata;
     const mainMalId = parseInt(show.ratingKey.replace(`${this.prefix}-show-`, ''), 10);
-    const [mainAnime, specials] = await Promise.all([
-      this.jikanClient.getAnimeById(mainMalId),
-      getAggregatedSpecials(mainMalId, this.jikanClient),
-    ]);
 
-    const special = specials.find((s) => s.globalIndex === request.index);
+    // {mal-25777} / {mal-25777-2} in the file name picks that MAL entry instead of the S00 position
+    // (MAL-based sources only: AniDB's specials are episodes of the anime itself)
+    const tag = this.jikanClient.getSpecials ? null : parseSpecialTag(request.filename, request.title);
+    const [mainAnime, special] = await Promise.all([
+      this.jikanClient.getAnimeById(mainMalId),
+      tag
+        ? resolveTaggedSpecial(tag, mainMalId, request.index ?? 0, this.jikanClient)
+        : getAggregatedSpecials(mainMalId, this.jikanClient).then((all) => all.find((s) => s.globalIndex === request.index)),
+    ]);
+    if (tag && !special) {
+      logger.warn(
+        `Special S00E${request.index} tagged mal-${tag.malId}: ` +
+          (tag.episode === undefined ? 'entry has several episodes, add the episode to the tag, e.g. {mal-' + tag.malId + '-2}' : 'episode not found')
+      );
+    }
+
     if (!special) {
       return { MediaContainer: { offset: 0, totalSize: 0, identifier: ANIME_PROVIDER_IDENTIFIER, size: 0, Metadata: [] } };
     }
@@ -343,7 +354,9 @@ export class MatchService {
       mainAnime,
       special.globalIndex,
       grandparentRatingKey,
-      parentRatingKey
+      parentRatingKey,
+      {},
+      tag ? { malId: special.anime.mal_id, episode: special.episode.mal_id } : undefined
     );
 
     return {

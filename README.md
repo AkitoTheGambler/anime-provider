@@ -52,6 +52,10 @@ untagged folders `METADATA_SOURCE`. IDs of other sites are translated with Fribb
 `anime-list-full.json`. `MATCH_SCORING=true` re-ranks the search results by title and year
 instead of keeping the API's order.
 
+Specials in a show's `Specials` folder are matched by their S00 number, counted across all
+related OVAs, specials and ONAs in air-date order. A MAL ID in the file name picks the entry
+instead: `S00E03 {mal-25777}`, or `S00E03 {mal-25777-2}` for episode 2 of an entry with several.
+
 ## Collections
 
 Plex ignores provider collections in TV libraries, so the provider

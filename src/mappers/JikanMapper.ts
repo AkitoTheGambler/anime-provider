@@ -679,9 +679,13 @@ export class JikanMapper {
     globalIndex: number,
     grandparentRatingKey: string,
     parentRatingKey: string,
-    people: People = {}
+    people: People = {},
+    /** set for a file tagged {mal-…}: kept in the ratingKey ("…-0-3-25777-2") */
+    tagged?: { malId: number; episode: number }
   ): EpisodeMetadata {
-    const episodeRatingKey = `${this.idPrefix}-episode-${mainAnime.mal_id}-0-${globalIndex}`;
+    const episodeRatingKey =
+      `${this.idPrefix}-episode-${mainAnime.mal_id}-0-${globalIndex}` +
+      (tagged ? `-${tagged.malId}-${tagged.episode}` : '');
 
     return {
       type: 'episode',

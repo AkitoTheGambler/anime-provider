@@ -13,7 +13,7 @@ import {
   Image,
 } from '../models/Metadata';
 import { ANIME_PROVIDER_IDENTIFIER } from '../constants';
-import { getAggregatedSpecials, SPECIAL_RELATION_TYPES } from './SpecialsHelper';
+import { getAggregatedSpecials, resolveTaggedSpecial, SPECIAL_RELATION_TYPES } from './SpecialsHelper';
 import { FranchiseList } from './FranchiseCollections';
 import { CollectionRef, People } from '../mappers/JikanMapper';
 import { JikanAnime } from '../types/jikan';
@@ -65,6 +65,8 @@ interface ParsedRatingKey {
   malId: number;
   seasonNumber?: number;
   episodeNumber?: number;
+  /** special from a file tagged {mal-…}: that MAL entry and its episode */
+  tagged?: { malId: number; episode: number };
 }
 
 
@@ -108,12 +110,14 @@ export class MetadataService {
    * - {prefix}-show-{id}
    * - {prefix}-season-{id}-{seasonNumber}   (1, or 0 for specials)
    * - {prefix}-episode-{id}-{seasonNumber}-{episodeNumber}
+   * - {prefix}-episode-{id}-0-{episodeNumber}-{taggedMalId}-{taggedEpisode}   (special from a tagged file)
    */
   private parseRatingKey(ratingKey: string): ParsedRatingKey | null {
-    const m = ratingKey.match(/^(mal|anidb)-(show|season|episode)-(\d+)(?:-(\d+))?(?:-(\d+))?$/);
+    const m = ratingKey.match(/^(mal|anidb)-(show|season|episode)-(\d+)(?:-(\d+))?(?:-(\d+))?(?:-(\d+)-(\d+))?$/);
     if (!m) return null;
 
-    const [, prefix, type, id, a, b] = m;
+    const [, prefix, type, id, a, b, taggedId, taggedEpisode] = m;
+    if (taggedId !== undefined && !(type === 'episode' && a === '0')) return null;
     if (prefix !== this.prefix) {
       throw new Error(
         `ratingKey "${ratingKey}" belongs to the "${prefix}" source but METADATA_SOURCE uses "${this.prefix}" IDs. ` +
@@ -133,6 +137,8 @@ export class MetadataService {
         malId: parseInt(id, 10),
         seasonNumber: parseInt(a, 10),
         episodeNumber: parseInt(b, 10),
+        tagged:
+          taggedId !== undefined ? { malId: parseInt(taggedId, 10), episode: parseInt(taggedEpisode, 10) } : undefined,
       };
     }
     return null;
@@ -253,15 +259,17 @@ export class MetadataService {
   private async getSpecialEpisode(
     mainMalId: number,
     globalIndex: number,
-    options: MetadataServiceOptions
+    options: MetadataServiceOptions,
+    tagged?: { malId: number; episode: number }
   ): Promise<MetadataResponse> {
-    const [mainAnime, specials, people] = await Promise.all([
+    const [mainAnime, special, people] = await Promise.all([
       this.jikanClient.getAnimeById(mainMalId),
-      getAggregatedSpecials(mainMalId, this.jikanClient),
+      tagged
+        ? resolveTaggedSpecial(tagged, mainMalId, globalIndex, this.jikanClient)
+        : getAggregatedSpecials(mainMalId, this.jikanClient).then((all) => all.find((s) => s.globalIndex === globalIndex)),
       this.people(mainMalId),
     ]);
 
-    const special = specials.find((s) => s.globalIndex === globalIndex);
     if (!special) {
       throw new Error(`Special episode ${globalIndex} not found for anime ${mainMalId}`);
     }
@@ -276,7 +284,8 @@ export class MetadataService {
       special.globalIndex,
       grandparentRatingKey,
       parentRatingKey,
-      people
+      people,
+      tagged
     );
 
     return {
@@ -388,6 +397,10 @@ export class MetadataService {
     const parsed = this.parseRatingKey(ratingKey);
     if (!parsed || parsed.type !== 'episode' || parsed.seasonNumber !== 0) return null;
     if (this.jikanClient.getSpecials) return null; // native specials (AniDB): no separate entry
+    if (parsed.tagged) {
+      const entry = await this.jikanClient.getAnimeById(parsed.tagged.malId);
+      return { mal_id: entry.mal_id, episode: parsed.tagged.episode, title: entry.title, episodes: entry.episodes ?? null };
+    }
     const specials = await getAggregatedSpecials(parsed.malId, this.jikanClient);
     const special = specials.find((s) => s.globalIndex === parsed.episodeNumber);
     if (!special) return null;
@@ -421,7 +434,7 @@ export class MetadataService {
 
       case 'episode':
         if (parsed.seasonNumber === 0) {
-          return this.getSpecialEpisode(parsed.malId, parsed.episodeNumber!, options);
+          return this.getSpecialEpisode(parsed.malId, parsed.episodeNumber!, options, parsed.tagged);
         }
         return this.getEpisode(parsed.malId, parsed.episodeNumber!, options);
 
