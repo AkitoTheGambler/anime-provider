@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+node_modules
+dist
+cache
+coverage
+test
+*.ps1
+test-titles.js
+.git
+.github
+.vscode
+.idea

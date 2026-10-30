@@ -1,0 +1,15 @@
+services:
+  anime-provider:
+    image: <dockerhub-user>/anime-provider:latest
+    container_name: anime-provider
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      # inside the container "localhost" is the container itself
+      PLEX_URL: http://host.docker.internal:32400
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./cache:/app/cache
