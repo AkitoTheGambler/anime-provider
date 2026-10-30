@@ -62,9 +62,9 @@ Plex ignores provider collections in TV libraries, so the provider
 writes them into Plex itself (needs `PLEX_TOKEN`): 2 minutes after start and every
 `COLLECTION_SYNC_HOURS`.
 
-Shows still matched with the other ID type (after changing `METADATA_SOURCE`) keep their ID and
-get the collection of their counterpart from Fribb's ID list; `REMATCH_OUTDATED=true` re-matches
-them to the counterpart instead.
+Shows still matched with the other ID type (after changing `METADATA_SOURCE`)
+are re-matched to their counterpart from Fribb's ID list; with `REMATCH_OUTDATED=false` they keep
+their ID and only get the counterpart's collection.
 
 ## AniDB
 
