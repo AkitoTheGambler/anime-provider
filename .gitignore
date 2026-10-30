@@ -22,7 +22,3 @@ Thumbs.db
 
 # AniDB / runtime cache
 cache/
-
-# Local helper scripts
-test-live.ps1
-test-titles.js
