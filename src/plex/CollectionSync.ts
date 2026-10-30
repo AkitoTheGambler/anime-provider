@@ -7,6 +7,10 @@
  * user's own collections are kept. Collections this provider made (recognised
  * by their summary) that no longer fit are replaced, and left-over empty ones
  * are deleted. New collections get poster + summary.
+ *
+ * Shows matched with the other ID type (an outdated METADATA_SOURCE) keep their ID and get the
+ * collection of their counterpart in the active source, found with the ID list. With rematch they
+ * are matched to that counterpart in Plex instead, if it is unambiguous.
  */
 
 import { PlexClient } from './PlexClient';
@@ -29,9 +33,13 @@ export interface CollectionSyncOptions {
   library: string;
   /** Only shows whose guid starts with this scheme are touched */
   providerIdentifier: string;
-  /** ID prefix of the active source ("mal" / "anidb"); shows matched with the other one are skipped */
+  /** ID prefix of the active source ("mal" / "anidb") */
   idPrefix?: 'mal' | 'anidb';
   resolve: CollectionResolver;
+  /** ID of the same anime in another ID space (ID list); undefined = unknown */
+  translate?: (from: 'mal' | 'anidb', id: number, to: 'mal' | 'anidb') => Promise<number | undefined>;
+  /** Re-match outdated-source shows to their counterpart in the active source */
+  rematch?: boolean;
 }
 
 export interface CollectionSyncResult {
@@ -42,8 +50,12 @@ export interface CollectionSyncResult {
   retagged: number;
   alreadyTagged: number;
   noCollection: number;
-  /** Matched while a different METADATA_SOURCE was active — need Unmatch + Refresh in Plex */
-  otherSource: number;
+  /** Matched while a different METADATA_SOURCE was active */
+  outdatedSource: number;
+  /** of those: re-matched to the active source */
+  rematched: number;
+  /** of those: no counterpart in the ID list */
+  noCounterpart: number;
   failed: number;
   newCollections: string[];
   deletedCollections: string[];
@@ -61,7 +73,7 @@ export async function syncCollections(opts: CollectionSyncOptions): Promise<Coll
   }
 }
 
-async function doSync({ plex, library, providerIdentifier, idPrefix, resolve }: CollectionSyncOptions): Promise<CollectionSyncResult> {
+async function doSync({ plex, library, providerIdentifier, idPrefix, resolve, translate, rematch }: CollectionSyncOptions): Promise<CollectionSyncResult> {
   const section = await plex.findSection(library);
   if (!section) {
     const titles = await plex.listSectionTitles().catch(() => []);
@@ -69,7 +81,8 @@ async function doSync({ plex, library, providerIdentifier, idPrefix, resolve }: 
   }
 
   const result: CollectionSyncResult = {
-    shows: 0, matchedByProvider: 0, tagged: 0, retagged: 0, alreadyTagged: 0, noCollection: 0, otherSource: 0, failed: 0,
+    shows: 0, matchedByProvider: 0, tagged: 0, retagged: 0, alreadyTagged: 0, noCollection: 0,
+    outdatedSource: 0, rematched: 0, noCounterpart: 0, failed: 0,
     newCollections: [], deletedCollections: [],
   };
 
@@ -80,19 +93,41 @@ async function doSync({ plex, library, providerIdentifier, idPrefix, resolve }: 
   const shows = await plex.listShows(section.key);
   result.shows = shows.length;
   const meta = new Map<string, ResolvedCollection>();
+  /** provider ratingKeys already used by a show: a re-match must not create a duplicate */
+  const usedKeys = new Set(
+    shows.map((s) => s.guid.match(/\/((mal|anidb)-show-\d+)$/)?.[1]).filter((k): k is string => !!k)
+  );
 
   for (const show of shows) {
     if (!show.guid.startsWith(`${providerIdentifier}://`)) continue;
-    const m = show.guid.match(/\/((mal|anidb)-show-\d+)$/);
+    const m = show.guid.match(/\/((mal|anidb)-show-(\d+))$/);
     if (!m) continue;
     result.matchedByProvider++;
-    if (idPrefix && m[2] !== idPrefix) {
-      result.otherSource++;
-      continue;
-    }
 
     try {
-      const resolved = await resolve(m[1]);
+      let key = m[1];
+      if (idPrefix && m[2] !== idPrefix) {
+        result.outdatedSource++;
+        const counterpart = translate ? await translate(m[2] as 'mal' | 'anidb', parseInt(m[3], 10), idPrefix) : undefined;
+        if (!counterpart) {
+          result.noCounterpart++;
+          result.noCollection++;
+          continue;
+        }
+        key = `${idPrefix}-show-${counterpart}`;
+        if (rematch) {
+          if (usedKeys.has(key)) {
+            logger.warn(`Collection sync: "${show.title}" (${m[1]}) not re-matched, another show already uses ${key}`);
+          } else {
+            await plex.matchItem(show.ratingKey, `${providerIdentifier}://show/${key}`, show.title);
+            usedKeys.add(key);
+            result.rematched++;
+            logger.info(`Collection sync: re-matched "${show.title}" ${m[1]} → ${key}`);
+          }
+        }
+      }
+
+      const resolved = await resolve(key);
       const cols = (Array.isArray(resolved) ? resolved : resolved ? [resolved] : []).filter((c) => c?.tag);
       if (!cols.length) {
         result.noCollection++;
@@ -128,10 +163,12 @@ async function doSync({ plex, library, providerIdentifier, idPrefix, resolve }: 
     }
   }
 
-  if (result.otherSource > 0) {
-    logger.warn(
-      `Collection sync: ${result.otherSource} shows are still matched with "${idPrefix === 'anidb' ? 'mal' : 'anidb'}" IDs ` +
-        `from a previous METADATA_SOURCE and were skipped. In Plex: select them → Unmatch, then Refresh Metadata.`
+  if (result.outdatedSource > result.rematched) {
+    const kept = result.outdatedSource - result.rematched - result.noCounterpart;
+    logger.info(
+      `Collection sync: ${result.outdatedSource} shows on an outdated source: ` +
+        `${kept} kept their ID (collection via the ID list), ${result.noCounterpart} without counterpart` +
+        (rematch ? '' : '. REMATCH_OUTDATED=true re-matches them')
     );
   }
 
@@ -173,7 +210,7 @@ async function doSync({ plex, library, providerIdentifier, idPrefix, resolve }: 
   logger.info(
     `Collection sync done: ${result.matchedByProvider}/${result.shows} shows from this provider, ` +
       `${result.tagged} tagged, ${result.retagged} corrected, ${result.alreadyTagged} already tagged, ${result.noCollection} standalone, ` +
-      `${result.otherSource} still on the old source, ` +
+      `${result.outdatedSource} outdated source (${result.rematched} re-matched), ` +
       `${result.failed} failed, ${result.newCollections.length} new / ${result.deletedCollections.length} deleted collections`
   );
   return result;

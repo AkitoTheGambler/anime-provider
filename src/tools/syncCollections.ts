@@ -9,6 +9,7 @@ import { PlexClient } from '../plex/PlexClient';
 import { syncCollections } from '../plex/CollectionSync';
 import { makeProviderResolver } from '../plex/providerResolver';
 import { ANIME_PROVIDER_IDENTIFIER } from '../constants';
+import { defaultPrefix, getIdMapping } from '../clients/createDataSource';
 
 async function main() {
   if (!config.plex.token) throw new Error('PLEX_TOKEN is not set in .env');
@@ -17,6 +18,9 @@ async function main() {
     plex: new PlexClient(config.plex.url, config.plex.token),
     library: config.plex.library,
     providerIdentifier: ANIME_PROVIDER_IDENTIFIER,
+    idPrefix: defaultPrefix(),
+    translate: (from, id, to) => getIdMapping().convert(from, id, to),
+    rematch: config.collections.rematch,
     resolve: makeProviderResolver(providerURL),
   });
   console.log(JSON.stringify(r, null, 2));

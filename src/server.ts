@@ -8,6 +8,7 @@ import logger from './utils/logger';
 import { PlexClient } from './plex/PlexClient';
 import { syncCollections } from './plex/CollectionSync';
 import { registerProvider } from './plex/ProviderRegistration';
+import { defaultPrefix, getIdMapping } from './clients/createDataSource';
 import { makeProviderResolver } from './plex/providerResolver';
 import { ANIME_PROVIDER_IDENTIFIER, ANIME_PROVIDER_TITLE } from './constants';
 
@@ -75,6 +76,9 @@ function scheduleCollectionSync(): void {
       plex: new PlexClient(config.plex.url, config.plex.token),
       library: config.plex.library,
       providerIdentifier: ANIME_PROVIDER_IDENTIFIER,
+      idPrefix: defaultPrefix(),
+      translate: (from, id, to) => getIdMapping().convert(from, id, to),
+      rematch: config.collections.rematch,
       resolve: makeProviderResolver(`http://localhost:${config.server.port}`),
     }).catch((e) => logger.warn(`Collection sync failed: ${e.message}`));
   setTimeout(run, 2 * 60 * 1000);

@@ -69,6 +69,8 @@ export const config = {
     enabled: process.env.COLLECTIONS !== 'false',
     /** Download Fribb's lists into cache/collections (true) or only read the files there (false) */
     download: process.env.LISTS_DOWNLOAD !== 'false',
+    /** Re-match shows of an outdated METADATA_SOURCE to their counterpart (false = keep the ID, collection only) */
+    rematch: process.env.REMATCH_OUTDATED === 'true',
     /** Hours between automatic collection syncs into Plex (0 = only on demand) */
     syncHours: parseFloat(process.env.COLLECTION_SYNC_HOURS || '6'),
   },

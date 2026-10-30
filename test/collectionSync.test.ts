@@ -67,7 +67,7 @@ describe('collection sync into Plex', () => {
   it('tags provider shows, keeps existing collections, sets poster/summary on new ones', async () => {
     const r = await syncCollections({ plex: new PlexClient(base, 'SECRET'), library: 'anime', providerIdentifier: ID, idPrefix: 'anidb', resolve });
     expect(state.token).toBe('SECRET');
-    expect(r).toMatchObject({ shows: 6, matchedByProvider: 5, tagged: 2, alreadyTagged: 1, noCollection: 1, otherSource: 1, failed: 0, newCollections: ['Code Geass'] });
+    expect(r).toMatchObject({ shows: 6, matchedByProvider: 5, tagged: 2, alreadyTagged: 1, noCollection: 2, outdatedSource: 1, noCounterpart: 1, failed: 0, newCollections: ['Code Geass'] });
     expect(state.shows.find((s) => s.ratingKey === '102')!.Collection.map((c) => c.tag)).toEqual(['Favourites', 'Code Geass']);
     expect(state.shows.find((s) => s.ratingKey === '105')!.Collection).toEqual([]); // other agent untouched
     const tagWrite = state.writes.find((w) => w.params.id === '101')!;
@@ -119,5 +119,31 @@ describe('collection sync into Plex', () => {
     expect(r3.retagged).toBe(1);
     expect(state.shows.find((s) => s.ratingKey === '104')!.Collection.map((c: any) => c.tag)).toEqual(['Air']);
     expect(r3.deletedCollections).toEqual(['Kanon']);
+  });
+
+  it('outdated source: keeps the ID and sets the collection of its counterpart', async () => {
+    // show 106 is mal-show-42916, the active source is AniDB; the ID list says MAL 42916 = AniDB 5373
+    const n = state.writes.length;
+    const translate = async (from: string, id: number, to: string) => (from === 'mal' && id === 42916 && to === 'anidb' ? 5373 : undefined);
+    const r = await syncCollections({ plex: new PlexClient(base, 'SECRET'), library: 'Anime', providerIdentifier: ID, idPrefix: 'anidb', resolve, translate });
+    expect(r).toMatchObject({ outdatedSource: 1, rematched: 0, noCounterpart: 0 });
+    expect(state.shows.find((s) => s.ratingKey === '106')!.Collection.map((c: any) => c.tag)).toEqual(['Code Geass']);
+    expect(state.writes.slice(n).some((w) => w.path.endsWith('/match'))).toBe(false);
+  });
+
+  it('outdated source with REMATCH_OUTDATED: re-matches, but never onto an ID another show uses', async () => {
+    const n = state.writes.length;
+    // AniDB 5373 is already show 102 → not re-matched
+    const taken = async () => 5373;
+    const r1 = await syncCollections({ plex: new PlexClient(base, 'SECRET'), library: 'Anime', providerIdentifier: ID, idPrefix: 'anidb', resolve, translate: taken, rematch: true });
+    expect(r1.rematched).toBe(0);
+    expect(state.writes.slice(n).some((w) => w.path.endsWith('/match'))).toBe(false);
+
+    const free = async () => 777;
+    const r2 = await syncCollections({ plex: new PlexClient(base, 'SECRET'), library: 'Anime', providerIdentifier: ID, idPrefix: 'anidb', resolve, translate: free, rematch: true });
+    expect(r2.rematched).toBe(1);
+    const match = state.writes.find((w) => w.method === 'PUT' && w.path === '/library/metadata/106/match')!;
+    expect(match.params.guid).toBe(`${ID}://show/anidb-show-777`);
+    expect(match.params.name).toBe('Old MAL match');
   });
 });

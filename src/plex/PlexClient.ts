@@ -129,4 +129,9 @@ export class PlexClient {
   async updateMetadataProvider(id: string, uri: string): Promise<void> {
     await this.http.put(`/media/providers/metadata/${id}`, null, { params: { uri } });
   }
+
+  /** Re-matches an item to a provider guid (what "Fix Match" does) */
+  async matchItem(ratingKey: string, guid: string, name: string): Promise<void> {
+    await this.http.put(`/library/metadata/${ratingKey}/match`, null, { params: { guid, name } });
+  }
 }
